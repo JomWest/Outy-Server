@@ -1,15 +1,26 @@
 const express = require('express');
 const { sql, getPool } = require('../../../db/pool');
-const LRU = require('lru-cache');
+const { LRUCache } = require('lru-cache');
 const { z } = require('zod');
 
-const cache = new LRU({ max: 500, ttl: (parseInt(process.env.CACHE_TTL_SECONDS || '60', 10)) * 1000 });
+const cache = new LRUCache({ max: 500, ttl: (parseInt(process.env.CACHE_TTL_SECONDS || '60', 10)) * 1000 });
 
-function createCrudRouter({ table, idColumn, schema, requireAuthWrite = true }) {
+function createCrudRouter({ table, idColumn, idColumns, idType = 'int', idTypes, schema, requireAuthWrite = true }) {
   const router = express.Router();
 
+  // Normalize id columns and types (support single or composite keys)
+  const ids = Array.isArray(idColumns) ? idColumns : (idColumn ? [idColumn] : ['id']);
+  const typesRaw = Array.isArray(idTypes) ? idTypes : (idTypes ? [idTypes] : [idType]);
+  const types = ids.map((_, i) => typesRaw[i] || typesRaw[0] || 'int');
+  const paramKeys = ids.length === 1 ? ['id'] : ids.map((_, i) => `id${i + 1}`);
+  const idRoutePath = ids.length === 1 ? '/:id' : '/' + paramKeys.map(k => `:${k}`).join('/');
+
+  const parseIdValue = (raw, type) => (type === 'int' ? parseInt(raw, 10) : String(raw).trim());
+  const getIdValues = (req) => paramKeys.map((k, i) => parseIdValue(req.params[k], types[i]));
+  const whereClause = ids.map((c, i) => `${c} = @${paramKeys[i]}`).join(' AND ');
+
   const fields = Object.keys(schema.shape);
-  const safeOrderBy = (sortBy) => (fields.includes(sortBy) ? sortBy : idColumn);
+  const safeOrderBy = (sortBy) => (fields.includes(sortBy) ? sortBy : ids[0]);
   const clearTableCache = () => {
     for (const key of cache.keys()) if (key.startsWith(`${table}:`)) cache.delete(key);
   };
@@ -49,14 +60,16 @@ function createCrudRouter({ table, idColumn, schema, requireAuthWrite = true }) 
    *   get:
    *     summary: Obtener un registro por id
    */
-  router.get('/:id', async (req, res, next) => {
+  router.get(idRoutePath, async (req, res, next) => {
     try {
-      const id = parseInt(req.params.id, 10);
-      const cacheKey = `${table}:get:${id}`;
+      const idVals = getIdValues(req);
+      const cacheKey = `${table}:get:${idVals.join(':')}`;
       const cached = cache.get(cacheKey);
       if (cached) return res.json(cached);
       const pool = await getPool();
-      const data = await pool.request().input('id', id).query(`SELECT * FROM ${table} WHERE ${idColumn} = @id`);
+      const r = pool.request();
+      idVals.forEach((val, i) => r.input(paramKeys[i], val));
+      const data = await r.query(`SELECT * FROM ${table} WHERE ${whereClause}`);
       const row = data.recordset[0];
       if (!row) return res.status(404).json({ error: 'No encontrado' });
       cache.set(cacheKey, row);
@@ -95,15 +108,16 @@ function createCrudRouter({ table, idColumn, schema, requireAuthWrite = true }) 
   });
 
   /** UPDATE */
-  router.put('/:id', requireAuth, validateBody, async (req, res, next) => {
+  router.put(idRoutePath, requireAuth, validateBody, async (req, res, next) => {
     try {
-      const id = parseInt(req.params.id, 10);
+      const idVals = getIdValues(req);
       const payload = req.body;
       const cols = Object.keys(payload);
       const setClause = cols.map(c => `${c} = @${c}`).join(', ');
-      const query = `UPDATE ${table} SET ${setClause} WHERE ${idColumn} = @id; SELECT * FROM ${table} WHERE ${idColumn} = @id;`;
+      const query = `UPDATE ${table} SET ${setClause} WHERE ${whereClause}; SELECT * FROM ${table} WHERE ${whereClause};`;
       const pool = await getPool();
-      const r = pool.request().input('id', id);
+      const r = pool.request();
+      idVals.forEach((val, i) => r.input(paramKeys[i], val));
       cols.forEach(c => r.input(c, payload[c]));
       const result = await r.query(query);
       clearTableCache();
@@ -113,17 +127,18 @@ function createCrudRouter({ table, idColumn, schema, requireAuthWrite = true }) 
     } catch (err) { next(err); }
   });
 
-  router.patch('/:id', requireAuth, async (req, res, next) => {
+  router.patch(idRoutePath, requireAuth, async (req, res, next) => {
     try {
       // Partial validation: pick only known fields
       const payload = Object.fromEntries(Object.entries(req.body).filter(([k]) => fields.includes(k)));
-      const id = parseInt(req.params.id, 10);
+      const idVals = getIdValues(req);
       if (Object.keys(payload).length === 0) return res.status(400).json({ error: 'Sin cambios válidos' });
       const cols = Object.keys(payload);
       const setClause = cols.map(c => `${c} = @${c}`).join(', ');
-      const query = `UPDATE ${table} SET ${setClause} WHERE ${idColumn} = @id; SELECT * FROM ${table} WHERE ${idColumn} = @id;`;
+      const query = `UPDATE ${table} SET ${setClause} WHERE ${whereClause} ; SELECT * FROM ${table} WHERE ${whereClause};`;
       const pool = await getPool();
-      const r = pool.request().input('id', id);
+      const r = pool.request();
+      idVals.forEach((val, i) => r.input(paramKeys[i], val));
       cols.forEach(c => r.input(c, payload[c]));
       const result = await r.query(query);
       clearTableCache();
@@ -134,11 +149,13 @@ function createCrudRouter({ table, idColumn, schema, requireAuthWrite = true }) 
   });
 
   /** DELETE */
-  router.delete('/:id', requireAuth, async (req, res, next) => {
+  router.delete(idRoutePath, requireAuth, async (req, res, next) => {
     try {
-      const id = parseInt(req.params.id, 10);
+      const idVals = getIdValues(req);
       const pool = await getPool();
-      const result = await pool.request().input('id', id).query(`DELETE FROM ${table} WHERE ${idColumn} = @id`);
+      const r = pool.request();
+      idVals.forEach((val, i) => r.input(paramKeys[i], val));
+      const result = await r.query(`DELETE FROM ${table} WHERE ${whereClause}`);
       clearTableCache();
       if (result.rowsAffected[0] === 0) return res.status(404).json({ error: 'No encontrado' });
       res.status(204).end();
