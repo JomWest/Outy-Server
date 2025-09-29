@@ -55,10 +55,6 @@ Disponible en `http://localhost:4000/docs` una vez corriendo.
 - CORS, Helmet y rate limit para endurecer la API
 - Validación de entrada con Zod (sanitización por lista blanca de columnas)
 
-## Notas de integración con Figma
-
-El diseño funcional de la app en Figma guía los recursos y relaciones. Esta API expone los modelos del diagrama ER para permitir las operaciones utilizadas por la app (listados de empleos, perfiles, conversaciones y postulación). Si necesitas endpoints específicos (por ejemplo, listados filtrados por categoría o ubicación), puedo añadir consultas optimizadas basadas en los flujos definidos en Figma.
-
 ## Problemas comunes
 
 - Error de conexión: valida `SQLSERVER_SERVER` (p.ej. `localhost\\SQLEXPRESS`) y permisos del usuario.
