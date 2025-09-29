@@ -9,18 +9,31 @@ API RESTful optimizada que usa SQL Server como base de datos y sigue las mejores
 
 ## Configuración
 
-1. Copia `.env.example` a `.env` y ajusta valores:
+1. Copia `.env.example` a `.env` y ajusta valores.
+
+Para Windows Authentication (lo que muestra tu captura):
 
 ```
 PORT=4000
-SQLSERVER_SERVER=localhost\\SQLEXPRESS
+SQLSERVER_AUTH=windows
+SQLSERVER_SERVER=AZAZYEL
+SQLSERVER_DATABASE=OUTY_DB
+SQLSERVER_ENCRYPT=false
+SQLSERVER_TRUST_SERVER_CERTIFICATE=true
+JWT_SECRET=replace_with_strong_secret
+CACHE_TTL_SECONDS=60
+
+Para autenticación SQL (usuario/contraseña):
+
+```
+SQLSERVER_AUTH=sql
+SQLSERVER_SERVER=AZAZYEL\SQLEXPRESS
 SQLSERVER_DATABASE=OUTY_DB
 SQLSERVER_USER=sa
 SQLSERVER_PASSWORD=YourStrong(!)Password
 SQLSERVER_ENCRYPT=true
 SQLSERVER_TRUST_SERVER_CERTIFICATE=true
-JWT_SECRET=replace_with_strong_secret
-CACHE_TTL_SECONDS=60
+```
 ```
 
 2. Instala dependencias y arranca:
