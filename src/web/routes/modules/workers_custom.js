@@ -1,6 +1,6 @@
 const express = require('express');
 const { getPool } = require('../../../db/pool');
-const { authenticateToken } = require('../../../security/auth');
+const { authMiddleware } = require('../../../security/auth');
 
 const router = express.Router();
 
@@ -413,7 +413,7 @@ router.get('/express-jobs/search', async (req, res, next) => {
  *       200:
  *         description: Lista de postulaciones
  */
-router.get('/express-jobs/:id/applications', authenticateToken, async (req, res, next) => {
+router.get('/express-jobs/:id/applications', authMiddleware, async (req, res, next) => {
   try {
     const pool = await getPool();
     const { id } = req.params;
@@ -422,13 +422,13 @@ router.get('/express-jobs/:id/applications', authenticateToken, async (req, res,
       .input('job_id', 'uniqueidentifier', id)
       .query(`
         SELECT 
-          eja.*,
-          wp.full_name,
-          wp.specialty,
-          wp.profile_picture_url,
-          wp.average_rating,
-          wp.total_reviews,
-          wp.phone_number,
+          eja.*, 
+          wp.full_name, 
+          wp.specialty, 
+          wp.profile_picture_url, 
+          wp.average_rating, 
+          wp.total_reviews, 
+          wp.phone_number, 
           wp.whatsapp_number
         FROM express_job_applications eja
         JOIN worker_profiles wp ON eja.worker_id = wp.id
