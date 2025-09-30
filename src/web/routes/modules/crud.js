@@ -89,7 +89,7 @@ function createCrudRouter({ table, idColumn, idColumns, idType = 'int', idTypes,
     }
   };
 
-  const requireAuth = (req, res, next) => requireAuthWrite ? require('../..//security/auth').authMiddleware(req, res, next) : next();
+  const requireAuth = (req, res, next) => requireAuthWrite ? require('../../../security/auth').authMiddleware(req, res, next) : next();
 
   /** CREATE */
   router.post('/', requireAuth, validateBody, async (req, res, next) => {
@@ -121,7 +121,10 @@ function createCrudRouter({ table, idColumn, idColumns, idType = 'int', idTypes,
       cols.forEach(c => r.input(c, payload[c]));
       const result = await r.query(query);
       clearTableCache();
-      const row = result.recordsets[1][0] || null;
+      
+      // Safely access recordsets with proper validation
+      const row = (result.recordsets && result.recordsets[1] && result.recordsets[1][0]) || 
+                  (result.recordset && result.recordset[0]) || null;
       if (!row) return res.status(404).json({ error: 'No encontrado' });
       res.json(row);
     } catch (err) { next(err); }
@@ -142,7 +145,10 @@ function createCrudRouter({ table, idColumn, idColumns, idType = 'int', idTypes,
       cols.forEach(c => r.input(c, payload[c]));
       const result = await r.query(query);
       clearTableCache();
-      const row = result.recordsets[1][0] || null;
+      
+      // Safely access recordsets with proper validation
+      const row = (result.recordsets && result.recordsets[1] && result.recordsets[1][0]) || 
+                  (result.recordset && result.recordset[0]) || null;
       if (!row) return res.status(404).json({ error: 'No encontrado' });
       res.json(row);
     } catch (err) { next(err); }

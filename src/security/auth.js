@@ -29,7 +29,7 @@ function authMiddleware(req, res, next) {
   if (!token) return res.status(401).json({ error: 'Token requerido' });
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = payload;
+    req.user = { id: payload.sub, role: payload.role };
     next();
   } catch (err) {
     return res.status(401).json({ error: 'Token inválido o expirado' });

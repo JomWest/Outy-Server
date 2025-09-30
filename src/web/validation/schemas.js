@@ -59,6 +59,16 @@ const candidate_profiles = z.object({
   bio: z.string().optional(),
   profile_picture_url: z.string().url().optional(),
   resume_url: z.string().url().optional(),
+  // Nuevos campos para almacenamiento de archivos como BLOB
+  profile_picture_data: z.instanceof(Buffer).optional(),
+  profile_picture_filename: z.string().optional(),
+  profile_picture_content_type: z.string().optional(),
+  resume_data: z.instanceof(Buffer).optional(),
+  resume_filename: z.string().optional(),
+  resume_content_type: z.string().optional(),
+  // Campos de timestamp agregados
+  created_at: z.string().datetime().optional(),
+  updated_at: z.string().datetime().optional(),
 });
 
 const education = z.object({
@@ -121,6 +131,109 @@ const reviews = z.object({
   created_at: z.string().datetime().optional(),
 });
 
+// ========= ESQUEMAS PARA TRABAJADORES Y TRABAJOS EXPRÉS =========
+
+const trade_categories = z.object({
+  name: z.string().min(1).max(100),
+  description: z.string().max(255).optional(),
+  icon_name: z.string().max(50).optional(),
+});
+
+const worker_profiles = z.object({
+  user_id: uuid(),
+  full_name: z.string().min(1).max(150),
+  trade_category_id: z.number().int(),
+  specialty: z.string().min(1).max(150),
+  years_experience: z.number().int().min(0).optional(),
+  description: z.string().optional(),
+  profile_picture_url: z.string().url().optional(),
+  phone_number: z.string().min(1).max(20),
+  whatsapp_number: z.string().max(20).optional(),
+  location_id: z.number().int().optional(),
+  address_details: z.string().max(255).optional(),
+  available: z.boolean().optional(),
+  hourly_rate_min: z.number().optional(),
+  hourly_rate_max: z.number().optional(),
+  daily_rate_min: z.number().optional(),
+  daily_rate_max: z.number().optional(),
+  currency: z.string().max(5).optional(),
+  average_rating: z.number().min(0).max(5).optional(),
+  total_reviews: z.number().int().min(0).optional(),
+  verified: z.boolean().optional(),
+  verification_date: z.string().datetime().optional(),
+  created_at: z.string().datetime().optional(),
+  updated_at: z.string().datetime().optional(),
+});
+
+const worker_services = z.object({
+  trade_category_id: z.number().int(),
+  service_name: z.string().min(1).max(150),
+  description: z.string().max(255).optional(),
+});
+
+const worker_service_offerings = z.object({
+  worker_id: uuid(),
+  service_id: z.number().int(),
+  price_min: z.number().optional(),
+  price_max: z.number().optional(),
+});
+
+const express_jobs = z.object({
+  client_id: uuid(),
+  trade_category_id: z.number().int(),
+  title: z.string().min(1).max(200),
+  description: z.string().min(1),
+  location_id: z.number().int().optional(),
+  address_details: z.string().max(255).optional(),
+  urgency: z.enum(['inmediato', 'hoy', 'esta_semana', 'flexible']).optional(),
+  preferred_date: z.string().datetime().optional(),
+  estimated_duration: z.string().max(50).optional(),
+  budget_min: z.number().optional(),
+  budget_max: z.number().optional(),
+  currency: z.string().max(5).optional(),
+  payment_method: z.string().max(50).optional(),
+  status: z.enum(['abierto', 'en_proceso', 'completado', 'cancelado']).optional(),
+  created_at: z.string().datetime().optional(),
+  updated_at: z.string().datetime().optional(),
+  expires_at: z.string().datetime().optional(),
+});
+
+const express_job_applications = z.object({
+  express_job_id: uuid(),
+  worker_id: uuid(),
+  proposed_price: z.number(),
+  estimated_time: z.string().max(100).optional(),
+  message: z.string().optional(),
+  status: z.enum(['enviada', 'vista', 'aceptada', 'rechazada', 'retirada']).optional(),
+  applied_at: z.string().datetime().optional(),
+  updated_at: z.string().datetime().optional(),
+});
+
+const worker_reviews = z.object({
+  worker_id: uuid(),
+  client_id: uuid(),
+  express_job_id: uuid().optional(),
+  overall_rating: z.number().int().min(1).max(5),
+  quality_rating: z.number().int().min(1).max(5).optional(),
+  punctuality_rating: z.number().int().min(1).max(5).optional(),
+  communication_rating: z.number().int().min(1).max(5).optional(),
+  comment: z.string().optional(),
+  would_recommend: z.boolean().optional(),
+  created_at: z.string().datetime().optional(),
+});
+
+const worker_portfolio = z.object({
+  worker_id: uuid(),
+  project_title: z.string().min(1).max(200),
+  project_description: z.string().optional(),
+  completion_date: isoDate().optional(),
+  image_url: z.string().url().optional(),
+  before_image_url: z.string().url().optional(),
+  after_image_url: z.string().url().optional(),
+  created_at: z.string().datetime().optional(),
+  is_featured: z.boolean().optional(),
+});
+
 module.exports = {
   users,
   company_profiles,
@@ -137,4 +250,13 @@ module.exports = {
   conversation_participants,
   messages,
   reviews,
+  // Nuevos esquemas para trabajadores y trabajos exprés
+  trade_categories,
+  worker_profiles,
+  worker_services,
+  worker_service_offerings,
+  express_jobs,
+  express_job_applications,
+  worker_reviews,
+  worker_portfolio,
 };
