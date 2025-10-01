@@ -53,12 +53,14 @@ const jobs = z.object({
 });
 
 const candidate_profiles = z.object({
-  user_id: uuid(),
+  user_id: z.string().uuid(),
   full_name: z.string().min(1),
   professional_title: z.string().optional(),
   bio: z.string().optional(),
   profile_picture_url: z.string().url().optional(),
   resume_url: z.string().url().optional(),
+  // NEW: Allow linking to locations table for residence department
+  location_id: z.number().int().optional(),
   // Nuevos campos para almacenamiento de archivos como BLOB
   profile_picture_data: z.instanceof(Buffer).optional(),
   profile_picture_filename: z.string().optional(),
