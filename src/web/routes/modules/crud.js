@@ -5,6 +5,45 @@ const { z } = require('zod');
 
 const cache = new LRUCache({ max: 500, ttl: (parseInt(process.env.CACHE_TTL_SECONDS || '60', 10)) * 1000 });
 
+// Add SQL type helpers to enforce Unicode on strings and proper parameter types
+const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const isIsoDate = (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(v);
+function sqlTypeForField(fieldName, value) {
+  if (value === null || value === undefined) return { type: null, value: null };
+  if (typeof value === 'string') {
+    if (uuidRegex.test(value)) return { type: sql.UniqueIdentifier, value };
+    if (isIsoDate(value) || /(_at|date)$/i.test(fieldName)) return { type: sql.DateTime2, value: new Date(value) };
+    const len = value.length;
+    const shouldUseMax = ['description', 'message', 'requirements', 'project_description'].includes(fieldName) || len > 4000;
+    return { type: shouldUseMax ? sql.NVarChar(sql.MAX) : sql.NVarChar, value };
+  }
+  if (typeof value === 'number') {
+    return { type: Number.isInteger(value) ? sql.Int : sql.Float, value };
+  }
+  if (typeof value === 'boolean') {
+    return { type: sql.Bit, value: value ? 1 : 0 };
+  }
+  if (value instanceof Date) {
+    return { type: sql.DateTime2, value };
+  }
+  return { type: sql.NVarChar, value: String(value) };
+}
+function inputWithType(request, name, value) {
+  const { type, value: v } = sqlTypeForField(name, value);
+  if (type) request.input(name, type, v);
+  else request.input(name, v);
+}
+function sqlTypeFromIdTypeName(typeName) {
+  switch (typeName) {
+    case 'int': return sql.Int;
+    case 'uuid': return sql.UniqueIdentifier;
+    default: return sql.NVarChar;
+  }
+}
+function inputIdWithType(request, name, value, typeName) {
+  request.input(name, sqlTypeFromIdTypeName(typeName), value);
+}
+
 function createCrudRouter({ table, idColumn, idColumns, idType = 'int', idTypes, schema, requireAuthWrite = true }) {
   const router = express.Router();
 
@@ -100,7 +139,7 @@ function createCrudRouter({ table, idColumn, idColumns, idType = 'int', idTypes,
       const query = `INSERT INTO ${table} (${cols.join(',')}) OUTPUT INSERTED.* VALUES (${valuesPlaceholders})`;
       const pool = await getPool();
       const r = pool.request();
-      cols.forEach(c => r.input(c, payload[c]));
+      cols.forEach(c => inputWithType(r, c, payload[c]));
       const result = await r.query(query);
       clearTableCache();
       res.status(201).json(result.recordset[0]);
@@ -117,8 +156,8 @@ function createCrudRouter({ table, idColumn, idColumns, idType = 'int', idTypes,
       const query = `UPDATE ${table} SET ${setClause} WHERE ${whereClause}; SELECT * FROM ${table} WHERE ${whereClause};`;
       const pool = await getPool();
       const r = pool.request();
-      idVals.forEach((val, i) => r.input(paramKeys[i], val));
-      cols.forEach(c => r.input(c, payload[c]));
+      idVals.forEach((val, i) => inputIdWithType(r, paramKeys[i], val, types[i]));
+      cols.forEach(c => inputWithType(r, c, payload[c]));
       const result = await r.query(query);
       clearTableCache();
       
@@ -141,8 +180,8 @@ function createCrudRouter({ table, idColumn, idColumns, idType = 'int', idTypes,
       const query = `UPDATE ${table} SET ${setClause} WHERE ${whereClause} ; SELECT * FROM ${table} WHERE ${whereClause};`;
       const pool = await getPool();
       const r = pool.request();
-      idVals.forEach((val, i) => r.input(paramKeys[i], val));
-      cols.forEach(c => r.input(c, payload[c]));
+      idVals.forEach((val, i) => inputIdWithType(r, paramKeys[i], val, types[i]));
+      cols.forEach(c => inputWithType(r, c, payload[c]));
       const result = await r.query(query);
       clearTableCache();
       
@@ -160,7 +199,7 @@ function createCrudRouter({ table, idColumn, idColumns, idType = 'int', idTypes,
       const idVals = getIdValues(req);
       const pool = await getPool();
       const r = pool.request();
-      idVals.forEach((val, i) => r.input(paramKeys[i], val));
+      idVals.forEach((val, i) => inputIdWithType(r, paramKeys[i], val, types[i]));
       const result = await r.query(`DELETE FROM ${table} WHERE ${whereClause}`);
       clearTableCache();
       if (result.rowsAffected[0] === 0) return res.status(404).json({ error: 'No encontrado' });

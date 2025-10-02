@@ -1,5 +1,5 @@
 const express = require('express');
-const { getPool } = require('../../../db/pool');
+const { getPool, sql } = require('../../../db/pool');
 const { authMiddleware } = require('../../../security/auth');
 
 const router = express.Router();
@@ -83,19 +83,19 @@ router.get('/search', async (req, res, next) => {
 
     if (trade_category_id) {
       query += ` AND wp.trade_category_id = @param${paramIndex}`;
-      params.push({ name: `param${paramIndex}`, type: 'int', value: parseInt(trade_category_id) });
+      params.push({ name: `param${paramIndex}`, type: sql.Int, value: parseInt(trade_category_id) });
       paramIndex++;
     }
 
     if (location_id) {
       query += ` AND wp.location_id = @param${paramIndex}`;
-      params.push({ name: `param${paramIndex}`, type: 'int', value: parseInt(location_id) });
+      params.push({ name: `param${paramIndex}`, type: sql.Int, value: parseInt(location_id) });
       paramIndex++;
     }
 
     if (min_rating) {
       query += ` AND wp.average_rating >= @param${paramIndex}`;
-      params.push({ name: `param${paramIndex}`, type: 'decimal', value: parseFloat(min_rating) });
+      params.push({ name: `param${paramIndex}`, type: sql.Float, value: parseFloat(min_rating) });
       paramIndex++;
     }
 
@@ -109,13 +109,13 @@ router.get('/search', async (req, res, next) => {
 
     if (max_hourly_rate) {
       query += ` AND (wp.hourly_rate_min IS NULL OR wp.hourly_rate_min <= @param${paramIndex})`;
-      params.push({ name: `param${paramIndex}`, type: 'decimal', value: parseFloat(max_hourly_rate) });
+      params.push({ name: `param${paramIndex}`, type: sql.Float, value: parseFloat(max_hourly_rate) });
       paramIndex++;
     }
 
     if (search_text) {
       query += ` AND (wp.full_name LIKE @param${paramIndex} OR wp.specialty LIKE @param${paramIndex})`;
-      params.push({ name: `param${paramIndex}`, type: 'nvarchar', value: `%${search_text}%` });
+      params.push({ name: `param${paramIndex}`, type: sql.NVarChar(255), value: `%${search_text}%` });
       paramIndex++;
     }
 
@@ -164,7 +164,7 @@ router.get('/:id/services', async (req, res, next) => {
     const { id } = req.params;
 
     const result = await pool.request()
-      .input('worker_id', 'uniqueidentifier', id)
+      .input('worker_id', sql.UniqueIdentifier, id)
       .query(`
         SELECT 
           ws.id,
@@ -209,7 +209,7 @@ router.get('/:id/portfolio', async (req, res, next) => {
     const { id } = req.params;
 
     const result = await pool.request()
-      .input('worker_id', 'uniqueidentifier', id)
+      .input('worker_id', sql.UniqueIdentifier, id)
       .query(`
         SELECT *
         FROM worker_portfolio
@@ -246,7 +246,7 @@ router.get('/:id/reviews', async (req, res, next) => {
     const { id } = req.params;
 
     const result = await pool.request()
-      .input('worker_id', 'uniqueidentifier', id)
+      .input('worker_id', sql.UniqueIdentifier, id)
       .query(`
         SELECT 
           wr.*,
@@ -315,7 +315,8 @@ router.get('/express-jobs/search', async (req, res, next) => {
       urgency,
       min_budget,
       max_budget,
-      status = 'abierto'
+      status,
+      client_id,
     } = req.query;
 
     let query = `
@@ -332,39 +333,51 @@ router.get('/express-jobs/search', async (req, res, next) => {
       LEFT JOIN locations_nicaragua ln ON ej.location_id = ln.id
       LEFT JOIN users u ON ej.client_id = u.id
       LEFT JOIN express_job_applications eja ON ej.id = eja.express_job_id
-      WHERE ej.status = @status
+      WHERE 1=1
     `;
 
-    const params = [{ name: 'status', type: 'nvarchar', value: status }];
-    let paramIndex = 2;
+    const params = [];
+    let paramIndex = 1;
+
+    if (status) {
+      query += ` AND ej.status = @param${paramIndex}`;
+      params.push({ name: `param${paramIndex}`, type: sql.NVarChar(50), value: status });
+      paramIndex++;
+    }
+
+    if (client_id) {
+      query += ` AND ej.client_id = @param${paramIndex}`;
+      params.push({ name: `param${paramIndex}`, type: sql.UniqueIdentifier, value: client_id });
+      paramIndex++;
+    }
 
     if (trade_category_id) {
       query += ` AND ej.trade_category_id = @param${paramIndex}`;
-      params.push({ name: `param${paramIndex}`, type: 'int', value: parseInt(trade_category_id) });
+      params.push({ name: `param${paramIndex}`, type: sql.Int, value: parseInt(trade_category_id) });
       paramIndex++;
     }
 
     if (location_id) {
       query += ` AND ej.location_id = @param${paramIndex}`;
-      params.push({ name: `param${paramIndex}`, type: 'int', value: parseInt(location_id) });
+      params.push({ name: `param${paramIndex}`, type: sql.Int, value: parseInt(location_id) });
       paramIndex++;
     }
 
     if (urgency) {
       query += ` AND ej.urgency = @param${paramIndex}`;
-      params.push({ name: `param${paramIndex}`, type: 'nvarchar', value: urgency });
+      params.push({ name: `param${paramIndex}`, type: sql.NVarChar(50), value: urgency });
       paramIndex++;
     }
 
     if (min_budget) {
       query += ` AND (ej.budget_max IS NULL OR ej.budget_max >= @param${paramIndex})`;
-      params.push({ name: `param${paramIndex}`, type: 'decimal', value: parseFloat(min_budget) });
+      params.push({ name: `param${paramIndex}`, type: sql.Float, value: parseFloat(min_budget) });
       paramIndex++;
     }
 
     if (max_budget) {
       query += ` AND (ej.budget_min IS NULL OR ej.budget_min <= @param${paramIndex})`;
-      params.push({ name: `param${paramIndex}`, type: 'decimal', value: parseFloat(max_budget) });
+      params.push({ name: `param${paramIndex}`, type: sql.Float, value: parseFloat(max_budget) });
       paramIndex++;
     }
 
@@ -419,7 +432,7 @@ router.get('/express-jobs/:id/applications', authMiddleware, async (req, res, ne
     const { id } = req.params;
 
     const result = await pool.request()
-      .input('job_id', 'uniqueidentifier', id)
+      .input('job_id', sql.UniqueIdentifier, id)
       .query(`
         SELECT 
           eja.*, 
@@ -480,6 +493,121 @@ router.get('/stats/workers', async (req, res, next) => {
       general: result.recordset[0],
       by_category: categoryStats.recordset
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Endpoint de mantenimiento: normalizar categorías (trade_categories) corrigiendo mojibake
+router.post('/maintenance/normalize-categories', authMiddleware, async (req, res, next) => {
+  try {
+    const pool = await getPool();
+
+    // Reutilizamos una versión local de fixMojibake para este endpoint
+    const fixMojibake = (s) => {
+      if (!s || typeof s !== 'string') return s;
+      let t = s
+        .replace(/Ã¡/g, 'á').replace(/Ã©/g, 'é').replace(/Ã­/g, 'í')
+        .replace(/Ã³/g, 'ó').replace(/Ãº/g, 'ú').replace(/Ã±/g, 'ñ')
+        .replace(/Ã/g, 'Á').replace(/Ã‰/g, 'É').replace(/Ã/g, 'Í')
+        .replace(/Ã“/g, 'Ó').replace(/Ãš/g, 'Ú').replace(/Ã‘/g, 'Ñ')
+        .replace(/Â¿/g, '¿').replace(/Â¡/g, '¡')
+        .replace(/GastronomÃ­a/g, 'Gastronomía')
+        .replace(/MecÃ¡nica/g, 'Mecánica')
+        .replace(/ConfecciÃ³n/g, 'Confección')
+        .replace(/JardinerÃ­a/g, 'Jardinería')
+        .replace(/ConstrucciÃ³n/g, 'Construcción');
+      t = t.normalize('NFC').trim();
+      return t;
+    };
+
+    const cats = await pool.request().query('SELECT id, name, description FROM trade_categories');
+    let updated = 0;
+    for (const row of cats.recordset) {
+      const newName = fixMojibake(row.name);
+      const newDesc = row.description != null ? fixMojibake(row.description) : row.description;
+      if (newName !== row.name || newDesc !== row.description) {
+        await pool.request()
+          .input('id', sql.Int, row.id)
+          .input('name', sql.NVarChar(150), newName)
+          .input('description', sql.NVarChar(255), newDesc)
+          .query('UPDATE trade_categories SET name = @name, description = @description WHERE id = @id');
+        updated++;
+      }
+    }
+
+    res.json({ updated_categories: updated });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Endpoint de mantenimiento: normalizar textos con acentos y corregir mojibake
+router.post('/maintenance/normalize-texts', authMiddleware, async (req, res, next) => {
+  try {
+    const pool = await getPool();
+
+    // Utilidades de normalización en JS (extendidas para cubrir "�" y patrones comunes en español)
+    const fixMojibake = (s) => {
+      if (!s || typeof s !== 'string') return s;
+      let t = s
+        .replace(/Ã¡/g, 'á').replace(/Ã©/g, 'é').replace(/Ã­/g, 'í')
+        .replace(/Ã³/g, 'ó').replace(/Ãº/g, 'ú').replace(/Ã±/g, 'ñ')
+        .replace(/Ã/g, 'Á').replace(/Ã‰/g, 'É').replace(/Ã/g, 'Í')
+        .replace(/Ã“/g, 'Ó').replace(/Ãš/g, 'Ú').replace(/Ã‘/g, 'Ñ')
+        .replace(/Â¿/g, '¿').replace(/Â¡/g, '¡');
+
+      // Heurísticas para el carácter de reemplazo U+FFFD (�)
+      t = t
+        // ñ seguida de vocal
+        .replace(/n�([aeiou])/g, (_m, v) => 'ñ' + v)
+        .replace(/N�([AEIOU])/g, (_m, v) => 'Ñ' + v)
+        // Sufijos muy comunes de español
+        .replace(/acci�n/gi, (m) => (m === m.toUpperCase() ? 'ACCIÓN' : 'acción'))
+        .replace(/aci�n/gi, (m) => (m === m.toUpperCase() ? 'ACIÓN' : 'ación'))
+        .replace(/ci�n/gi, (m) => (m === m.toUpperCase() ? 'CIÓN' : 'ción'))
+        .replace(/si�n/gi, (m) => (m === m.toUpperCase() ? 'SIÓN' : 'sión'))
+        // Palabras frecuentes en nuestro dominio
+        .replace(/tuber�a/gi, (m) => (m === m.toUpperCase() ? 'TUBERÍA' : 'tubería'))
+        .replace(/energ�a/gi, (m) => (m === m.toUpperCase() ? 'ENERGÍA' : 'energía'))
+        .replace(/l�nea/gi, (m) => (m === m.toUpperCase() ? 'LÍNEA' : 'línea'))
+        .replace(/expr�s/gi, (m) => (m === m.toUpperCase() ? 'EXPRÉS' : 'exprés'));
+
+      t = t.normalize('NFC').replace(/\s{2,}/g, ' ').trim();
+      return t;
+    };
+
+    // Procesar express_jobs: título y descripción
+    const jobs = await pool.request().query('SELECT id, title, description FROM express_jobs');
+    let updatedCount = 0;
+    for (const row of jobs.recordset) {
+      const newTitle = fixMojibake(row.title);
+      const newDesc = fixMojibake(row.description);
+      if (newTitle !== row.title || newDesc !== row.description) {
+        await pool.request()
+          .input('id', sql.UniqueIdentifier, row.id)
+          .input('title', sql.NVarChar, newTitle)
+          .input('description', sql.NVarChar(sql.MAX), newDesc)
+          .query('UPDATE express_jobs SET title = @title, description = @description, updated_at = GETDATE() WHERE id = @id');
+        updatedCount++;
+      }
+    }
+
+    // Procesar aplicaciones de express_jobs: message
+    const apps = await pool.request().query('SELECT id, message FROM express_job_applications');
+    let updatedApps = 0;
+    for (const row of apps.recordset) {
+      const newMsg = fixMojibake(row.message);
+      if (newMsg !== row.message) {
+        await pool.request()
+          .input('id', sql.UniqueIdentifier, row.id)
+          .input('message', sql.NVarChar(sql.MAX), newMsg)
+          .query('UPDATE express_job_applications SET message = @message, updated_at = GETDATE() WHERE id = @id');
+        updatedApps++;
+      }
+    }
+
+    res.json({ updated_jobs: updatedCount, updated_applications: updatedApps });
   } catch (err) {
     next(err);
   }
