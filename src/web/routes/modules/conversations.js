@@ -1,5 +1,6 @@
 const express = require('express');
 const { getPool } = require('../../../db/pool');
+const { sendPushToUser } = require('./push');
 const { authMiddleware } = require('../../../security/auth');
 
 // Función para generar UUID simple
@@ -285,6 +286,26 @@ router.post('/:conversationId/messages', authMiddleware, async (req, res, next) 
           read_at: message.read_at,
           status: message.status
         });
+      }
+
+      // Send push notification to other participants
+      try {
+        const recipients = await pool.request()
+          .input('conversationId', conversationId)
+          .input('senderId', req.user.id)
+          .query(`
+            SELECT user_id FROM conversation_participants
+            WHERE conversation_id = @conversationId AND user_id != @senderId
+          `);
+        for (const row of recipients.recordset) {
+          await sendPushToUser(row.user_id, {
+            title: 'Nuevo mensaje',
+            body: message.message_text,
+            data: { conversation_id: conversationId, sender_id: message.sender_id },
+          });
+        }
+      } catch (pushErr) {
+        console.warn('Push send failed', pushErr?.message || pushErr);
       }
       
       res.status(201).json(message);

@@ -126,7 +126,9 @@ startxref
 299
 %%EOF`;
     
-    fs.writeFileSync('test_resume.pdf', testPdfContent);
+    // Asegurar tamaño mínimo (>1KB) para pasar validación del servidor
+    const paddedPdf = testPdfContent + '\n' + '0'.repeat(2500);
+    fs.writeFileSync('test_resume.pdf', paddedPdf);
     console.log('✅ Archivo PDF de prueba creado\n');
 
     // 3. Test upload de CV

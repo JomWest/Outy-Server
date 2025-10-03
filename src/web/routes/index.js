@@ -7,6 +7,7 @@ const passwordRecoveryRouter = require('./modules/password-recovery');
 const files = require('./modules/files');
 const filesBlob = require('./modules/files_blob');
 const { router: fileBackupRoutes } = require('./modules/file_backup');
+const { router: pushRouter } = require('./modules/push');
 const candidateProfilesCustom = require('./modules/candidate_profiles_custom');
 const workersCustom = require('./modules/workers_custom');
 const schemas = require('../validation/schemas');
@@ -55,6 +56,7 @@ router.use('/conversations', conversationsRouter);
 router.use('/files', files);
 router.use('/files-blob', filesBlob);
 router.use('/file-backup', fileBackupRoutes);
+router.use('/push', pushRouter);
 router.use('/candidate_profiles', candidateProfilesCustom); // Custom routes first
 router.use('/candidate_profiles', createCrudRouter({ table: 'candidate_profiles', idColumn: 'user_id', idType: 'uuid', schema: schemas.candidate_profiles, requireAuthWrite: true }));
 router.use('/skills', createCrudRouter({ table: 'skills', idColumn: 'id', idType: 'int', schema: schemas.skills, requireAuthWrite: true }));

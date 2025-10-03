@@ -59,6 +59,16 @@ const candidate_profiles = z.object({
   bio: z.string().optional(),
   profile_picture_url: z.string().url().optional(),
   resume_url: z.string().url().optional(),
+  // Social and additional profile fields
+  website: z.string().optional(),
+  linkedin: z.string().optional(),
+  instagram: z.string().optional(),
+  tiktok: z.string().optional(),
+  skills: z.string().optional(),
+  city: z.string().optional(),
+  country: z.string().optional(),
+  // Departamento de residencia (texto libre)
+  department: z.string().optional(),
   // NEW: Allow linking to locations table for residence department
   location_id: z.number().int().optional(),
   // Nuevos campos para almacenamiento de archivos como BLOB

@@ -1,5 +1,6 @@
 const FormData = require('form-data');
 const fs = require('fs');
+const path = require('path');
 const https = require('https');
 const http = require('http');
 
@@ -74,16 +75,18 @@ async function testBlobUpload() {
     const token = loginData.token;
     console.log('✅ Token obtenido exitosamente\n');
 
-    // 2. Crear archivo de prueba (imagen simulada)
-    console.log('2️⃣ Creando archivo de prueba...');
-    const testImageBuffer = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
-    fs.writeFileSync('test_image.png', testImageBuffer);
-    console.log('✅ Archivo de prueba creado\n');
+    // 2. Seleccionar una imagen válida del proyecto
+    console.log('2️⃣ Seleccionando imagen de prueba del proyecto...');
+    const imagePath = path.resolve(__dirname, '../Outy-App/assets/adaptive-icon.png');
+    if (!fs.existsSync(imagePath)) {
+      throw new Error(`Imagen de prueba no encontrada en: ${imagePath}`);
+    }
+    console.log(`✅ Imagen seleccionada: ${imagePath}\n`);
 
     // 3. Test upload de imagen de perfil
     console.log('3️⃣ Probando upload de imagen de perfil...');
     const formData = new FormData();
-    formData.append('file', fs.createReadStream('test_image.png'), {
+    formData.append('file', fs.createReadStream(imagePath), {
       filename: 'test_profile.png',
       contentType: 'image/png'
     });
@@ -105,10 +108,8 @@ async function testBlobUpload() {
       console.log('❌ Error en upload:', uploadResult);
     }
 
-    // 4. Limpiar archivos de prueba
-    console.log('\n4️⃣ Limpiando archivos de prueba...');
-    fs.unlinkSync('test_image.png');
-    console.log('✅ Archivos de prueba eliminados');
+    // 4. No se requiere limpieza, usamos un asset existente
+    console.log('\n4️⃣ Prueba completada');
 
   } catch (error) {
     console.error('❌ Error durante las pruebas:', error.message);

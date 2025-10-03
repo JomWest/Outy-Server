@@ -1,0 +1,55 @@
+{
+  "departments": [
+    { "department": "Boaco", "municipalities": [
+      "Boaco", "Camoapa", "San Lorenzo", "San José de los Remates", "Santa Lucía", "Teustepe"
+    ]},
+    { "department": "Carazo", "municipalities": [
+      "Jinotepe", "Diriamba", "La Paz", "San Marcos", "Santa Teresa", "Dolores", "El Rosario", "La Conquista"
+    ]},
+    { "department": "Chinandega", "municipalities": [
+      "Chinandega", "Corinto", "El Realejo", "Chichigalpa", "Posoltega", "Puerto Morazán", "El Viejo", "Somotillo", "Villanueva", "San Pedro del Norte"
+    ]},
+    { "department": "Chontales", "municipalities": [
+      "Juigalpa", "Acoyapa", "Comalapa", "El Coral", "La Libertad", "San Pedro de Lóvago", "Santo Domingo", "Santo Tomás", "Villa Sandino"
+    ]},
+    { "department": "Estelí", "municipalities": [
+      "Estelí", "Condega", "Pueblo Nuevo", "San Juan de Limay", "La Trinidad", "San Nicolás"
+    ]},
+    { "department": "Granada", "municipalities": [
+      "Granada", "Diriá", "Diriomo", "Nandaime"
+    ]},
+    { "department": "Jinotega", "municipalities": [
+      "Jinotega", "San Rafael del Norte", "San Sebastián de Yalí", "La Concordia", "El Cuá", "San José de Bocay", "Wiwilí de Jinotega"
+    ]},
+    { "department": "León", "municipalities": [
+      "León", "Nagarote", "La Paz Centro", "Quezalguaque", "Telica", "El Sauce", "Achuapa", "Santa Rosa del Peñón", "Larreynaga (Malpaisillo)"
+    ]},
+    { "department": "Madriz", "municipalities": [
+      "Somoto", "Telpaneca", "San Juan de Río Coco", "Palacagüina", "Yalagüina", "Totogalpa", "San Lucas", "Las Sabanas", "San José de Cusmapa"
+    ]},
+    { "department": "Managua", "municipalities": [
+      "Managua", "Ciudad Sandino", "El Crucero", "Mateare", "San Rafael del Sur", "Ticuantepe", "Tipitapa", "Villa El Carmen"
+    ]},
+    { "department": "Masaya", "municipalities": [
+      "Masaya", "Nindirí", "Tisma", "Niquinohomo", "Catarina", "San Juan de Oriente", "Masatepe", "La Concepción"
+    ]},
+    { "department": "Matagalpa", "municipalities": [
+      "Matagalpa", "San Ramón", "San Dionisio", "Esquipulas", "Matiguás", "Río Blanco", "Muy Muy", "Sébaco", "San Isidro", "Ciudad Darío", "Terrabona", "El Tuma-La Dalia", "Rancho Grande", "Waslala"
+    ]},
+    { "department": "Nueva Segovia", "municipalities": [
+      "Ocotal", "Jalapa", "Murra", "Quilalí", "Santa María", "Dipilto", "Mozonte", "San Fernando", "El Jícaro", "Wiwilí de Nueva Segovia"
+    ]},
+    { "department": "Río San Juan", "municipalities": [
+      "San Carlos", "El Castillo", "San Miguelito", "Morrito", "El Almendro", "San Juan de Nicaragua"
+    ]},
+    { "department": "Rivas", "municipalities": [
+      "Rivas", "San Jorge", "Tola", "Belén", "Potosí", "Buenos Aires", "San Juan del Sur", "Cárdenas", "Moyogalpa", "Altagracia"
+    ]},
+    { "department": "RACCN", "municipalities": [
+      "Puerto Cabezas (Bilwi)", "Waspán", "Siuna", "Rosita", "Bonanza", "Prinzapolka", "Mulukukú"
+    ]},
+    { "department": "RACCS", "municipalities": [
+      "Bluefields", "Corn Island", "El Rama", "Muelle de los Bueyes", "Nueva Guinea", "Kukra Hill", "Laguna de Perlas", "La Cruz de Río Grande", "El Tortuguero", "Bocana de Paiwas"
+    ]}
+  ]
+}
