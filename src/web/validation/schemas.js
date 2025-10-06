@@ -133,7 +133,8 @@ const messages = z.object({
 });
 
 const reviews = z.object({
-  job_application_id: uuid(),
+  // En reseñas genéricas para trabajos exprés, no siempre hay job_application_id
+  job_application_id: uuid().optional(),
   author_id: uuid(),
   author_role: z.enum(['candidato', 'empleador']),
   subject_id: uuid(),
@@ -198,13 +199,14 @@ const express_jobs = z.object({
   location_id: z.number().int().optional(),
   address_details: z.string().max(255).optional(),
   urgency: z.enum(['inmediato', 'hoy', 'esta_semana', 'flexible']).optional(),
-  preferred_date: z.string().datetime().optional(),
+  // Aceptar fecha sin hora (YYYY-MM-DD) para alinearse con el formulario web
+  preferred_date: isoDate().optional(),
   estimated_duration: z.string().max(50).optional(),
   budget_min: z.number().optional(),
   budget_max: z.number().optional(),
   currency: z.string().max(5).optional(),
   payment_method: z.string().max(50).optional(),
-  status: z.enum(['abierto', 'en_proceso', 'completado', 'cancelado']).optional(),
+  status: z.enum(['abierto', 'en_proceso', 'completado', 'cancelado', 'en_revision', 'eliminado']).optional(),
   created_at: z.string().datetime().optional(),
   updated_at: z.string().datetime().optional(),
   expires_at: z.string().datetime().optional(),

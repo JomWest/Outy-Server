@@ -32,7 +32,25 @@ const fileFilter = (req, file, cb) => {
   const allowedTypes = {
     'profile_image': ['image/jpeg', 'image/png', 'image/jpg'],
     'resume': ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
-    'figan': ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/jpeg', 'image/png', 'image/jpg']
+    // FIGAN admite imágenes, documentos y videos comunes
+    'figan': [
+      // documentos
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      // imágenes
+      'image/jpeg',
+      'image/png',
+      'image/jpg',
+      'image/webp',
+      // videos
+      'video/mp4',
+      'video/quicktime', // .mov
+      'video/webm',
+      'video/x-matroska', // .mkv
+      'video/3gpp',
+      'video/3gpp2',
+      'video/x-msvideo' // .avi
+    ]
   };
 
   const fileType = req.body.type || req.query.type;

@@ -14,6 +14,7 @@ const app = express();
 // Security & parsing
 app.use(helmet({
   contentSecurityPolicy: false, // Disable CSP for Socket.IO compatibility
+  crossOriginResourcePolicy: { policy: 'cross-origin' }, // allow images/files to be embedded from other origins
 }));
 app.use(cors({ 
   origin: [
@@ -22,21 +23,27 @@ app.use(cors({
     'http://localhost:8083',
     'http://localhost:8084',
     'http://localhost:8085',
+    'http://localhost:8086',
+    'http://localhost:8090',
     'http://localhost:3000',
     'http://127.0.0.1:8081',
     'http://127.0.0.1:8082',
     'http://127.0.0.1:8083',
     'http://127.0.0.1:8084',
     'http://127.0.0.1:8085',
+    'http://127.0.0.1:8086',
+    'http://127.0.0.1:8090',
     'http://127.0.0.1:3000',
     'exp://127.0.0.1:8081',
     'exp://127.0.0.1:8083',
     'exp://127.0.0.1:8084',
     'exp://127.0.0.1:8085',
+    'exp://127.0.0.1:8086',
     'exp://localhost:8081',
     'exp://localhost:8083',
     'exp://localhost:8084',
-    'exp://localhost:8085'
+    'exp://localhost:8085',
+    'exp://localhost:8086'
   ], 
   methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
   credentials: true,
@@ -46,8 +53,15 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' })); // Increased limit for file uploads
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Serve static files from uploads directory
-app.use('/uploads', express.static(path.join(__dirname, '../../uploads')));
+// Serve static files from uploads directory with permissive CORS/CORP headers for web client
+app.use('/uploads', express.static(path.join(__dirname, '../../uploads'), {
+  setHeaders: (res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  }
+}));
 
 // Rate limiting for brute-force protection
 app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 300 }));

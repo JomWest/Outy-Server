@@ -71,4 +71,23 @@ async function sendPushToUser(userId, message) {
   return { sent };
 }
 
+/** Admin-only endpoint to send a push notification to a user */
+router.post('/send', authMiddleware, async (req, res, next) => {
+  try {
+    const { user_id, title, body, data } = req.body || {};
+    if (!user_id) {
+      return res.status(400).json({ error: 'user_id es requerido' });
+    }
+    // Solo admin y super_admin pueden enviar notificaciones directas
+    const role = req.user?.role;
+    if (role !== 'admin' && role !== 'super_admin') {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+    const result = await sendPushToUser(user_id, { title, body, data });
+    res.json({ ok: true, sent: result.sent });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = { router, sendPushToUser };

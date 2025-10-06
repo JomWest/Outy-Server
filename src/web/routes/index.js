@@ -9,6 +9,9 @@ const filesBlob = require('./modules/files_blob');
 const { router: fileBackupRoutes } = require('./modules/file_backup');
 const { router: pushRouter } = require('./modules/push');
 const candidateProfilesCustom = require('./modules/candidate_profiles_custom');
+const moderationRouter = require('./modules/moderation');
+const notificationsRouter = require('./modules/notifications');
+const expressJobsCustom = require('./modules/express_jobs_custom');
 const workersCustom = require('./modules/workers_custom');
 const schemas = require('../validation/schemas');
 const { getPool } = require('../../db/pool');
@@ -51,6 +54,8 @@ router.get('/health', async (req, res, next) => {
 });
 
 // CRUD routers
+// Notificaciones (bandeja del usuario)
+router.use('/notifications', notificationsRouter);
 router.use('/users', usersRouter);
 router.use('/conversations', conversationsRouter);
 router.use('/files', files);
@@ -80,9 +85,14 @@ router.use('/trade_categories', createCrudRouter({ table: 'trade_categories', id
 router.use('/worker_profiles', createCrudRouter({ table: 'worker_profiles', idColumn: 'id', idType: 'uuid', schema: schemas.worker_profiles, requireAuthWrite: true }));
 router.use('/worker_services', createCrudRouter({ table: 'worker_services', idColumn: 'id', idType: 'int', schema: schemas.worker_services, requireAuthWrite: true }));
 router.use('/worker_service_offerings', createCrudRouter({ table: 'worker_service_offerings', idColumns: ['worker_id','service_id'], idTypes: ['uuid','int'], schema: schemas.worker_service_offerings, requireAuthWrite: true }));
+// Custom antes del CRUD para interceptar actualizaciones de estado
+router.use('/express_jobs', expressJobsCustom);
 router.use('/express_jobs', createCrudRouter({ table: 'express_jobs', idColumn: 'id', idType: 'uuid', schema: schemas.express_jobs, requireAuthWrite: true }));
 router.use('/express_job_applications', createCrudRouter({ table: 'express_job_applications', idColumn: 'id', idType: 'uuid', schema: schemas.express_job_applications, requireAuthWrite: true }));
 router.use('/worker_reviews', createCrudRouter({ table: 'worker_reviews', idColumn: 'id', idType: 'uuid', schema: schemas.worker_reviews, requireAuthWrite: true }));
 router.use('/worker_portfolio', createCrudRouter({ table: 'worker_portfolio', idColumn: 'id', idType: 'uuid', schema: schemas.worker_portfolio, requireAuthWrite: true }));
+
+// Moderation (report/block users, daily reports)
+router.use('/moderation', moderationRouter);
 
 module.exports = router;

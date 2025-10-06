@@ -442,7 +442,8 @@ router.get('/express-jobs/:id/applications', authMiddleware, async (req, res, ne
           wp.average_rating, 
           wp.total_reviews, 
           wp.phone_number, 
-          wp.whatsapp_number
+          wp.whatsapp_number,
+          wp.user_id AS user_id
         FROM express_job_applications eja
         JOIN worker_profiles wp ON eja.worker_id = wp.id
         WHERE eja.express_job_id = @job_id

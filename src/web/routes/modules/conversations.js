@@ -196,7 +196,7 @@ router.get('/:conversationId/messages', authMiddleware, async (req, res, next) =
  * POST /api/conversations/:conversationId/messages
  * Send a new message to a conversation
  */
-router.post('/:conversationId/messages', authMiddleware, async (req, res, next) => {
+  router.post('/:conversationId/messages', authMiddleware, async (req, res, next) => {
   try {
     const { conversationId } = req.params;
     const { message_text } = req.body;
@@ -243,7 +243,34 @@ router.post('/:conversationId/messages', authMiddleware, async (req, res, next) 
           OUTPUT INSERTED.*
           VALUES (@id, @conversationId, @senderId, @messageText, @createdAt, @deliveredAt, @status)
         `);
-      
+
+      // If the message contains a file token [[FILE:url|name|mime]], persist attachment
+      try {
+        const tokenMatch = /\[\[FILE:([^\|\]]+)\|([^\|\]]+)\|([^\]]+)\]\]/.exec(message_text);
+        if (tokenMatch) {
+          const attUrl = tokenMatch[1];
+          const attName = tokenMatch[2];
+          const attMime = tokenMatch[3];
+          const attSize = null; // Optional: can be added later from upload response
+
+          await transaction.request()
+            .input('id', generateUUID())
+            .input('messageId', messageId)
+            .input('url', attUrl)
+            .input('name', attName)
+            .input('mime', attMime)
+            .input('size', attSize)
+            .input('createdAt', now)
+            .query(`
+              INSERT INTO message_attachments (id, message_id, url, name, mime, size, created_at)
+              VALUES (@id, @messageId, @url, @name, @mime, @size, @createdAt)
+            `);
+        }
+      } catch (attErr) {
+        console.warn('Attachment persistence failed:', attErr?.message || attErr);
+        // Do not rollback the whole message on attachment failure
+      }
+
       // Update conversation last_message_at
       await transaction.request()
         .input('conversationId', conversationId)
@@ -274,6 +301,14 @@ router.post('/:conversationId/messages', authMiddleware, async (req, res, next) 
       // Emit real-time message via Socket.IO
       const io = req.app.get('io');
       if (io) {
+        // Include attachment info if present
+        const tokenMatch = /\[\[FILE:([^\|\]]+)\|([^\|\]]+)\|([^\]]+)\]\]/.exec(message.message_text);
+        const attachment = tokenMatch ? {
+          url: tokenMatch[1],
+          name: tokenMatch[2],
+          mime: tokenMatch[3]
+        } : null;
+
         io.to(`conversation_${conversationId}`).emit('message_received', {
           id: message.id,
           message_text: message.message_text,
@@ -284,7 +319,8 @@ router.post('/:conversationId/messages', authMiddleware, async (req, res, next) 
           created_at: message.created_at,
           delivered_at: message.delivered_at,
           read_at: message.read_at,
-          status: message.status
+          status: message.status,
+          attachments: attachment ? [attachment] : []
         });
       }
 
@@ -389,6 +425,181 @@ router.put('/:conversationId/messages/:messageId/read', authMiddleware, async (r
     }
     
     res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * DELETE /api/conversations/:conversationId/messages/:messageId
+ * Delete a message sent by the current user
+ */
+router.delete('/:conversationId/messages/:messageId', authMiddleware, async (req, res, next) => {
+  try {
+    const { conversationId, messageId } = req.params;
+    const pool = await getPool();
+
+    // Verify user is participant in this conversation
+    const participantCheck = await pool.request()
+      .input('conversationId', conversationId)
+      .input('userId', req.user.id)
+      .query(`
+        SELECT COUNT(1) as count
+        FROM conversation_participants
+        WHERE conversation_id = @conversationId AND user_id = @userId
+      `);
+
+    if (participantCheck.recordset[0].count === 0) {
+      return res.status(403).json({ error: 'No tienes acceso a esta conversación' });
+    }
+
+    // Ensure the message exists and was sent by current user
+    const messageRow = await pool.request()
+      .input('conversationId', conversationId)
+      .input('messageId', messageId)
+      .query(`
+        SELECT id, sender_id, created_at
+        FROM messages
+        WHERE id = @messageId AND conversation_id = @conversationId
+      `);
+
+    if (messageRow.recordset.length === 0) {
+      return res.status(404).json({ error: 'Mensaje no encontrado' });
+    }
+
+    const message = messageRow.recordset[0];
+    if (message.sender_id !== req.user.id) {
+      return res.status(403).json({ error: 'Solo puedes eliminar tus propios mensajes' });
+    }
+
+    // Start transaction
+    const transaction = pool.transaction();
+    await transaction.begin();
+    try {
+      // Delete attachments first
+      await transaction.request()
+        .input('messageId', messageId)
+        .query(`DELETE FROM message_attachments WHERE message_id = @messageId`);
+
+      // Delete the message
+      const delResult = await transaction.request()
+        .input('messageId', messageId)
+        .query(`DELETE FROM messages WHERE id = @messageId`);
+
+      if (delResult.rowsAffected[0] === 0) {
+        throw new Error('No se pudo eliminar el mensaje');
+      }
+
+      // If the message was the latest one, update conversation last_message_at
+      const latestRow = await transaction.request()
+        .input('conversationId', conversationId)
+        .query(`
+          SELECT TOP 1 created_at
+          FROM messages
+          WHERE conversation_id = @conversationId
+          ORDER BY created_at DESC
+        `);
+
+      const latest = latestRow.recordset[0]?.created_at || null;
+      await transaction.request()
+        .input('conversationId', conversationId)
+        .input('lastMessageAt', latest)
+        .query(`
+          UPDATE conversations
+          SET last_message_at = @lastMessageAt
+          WHERE id = @conversationId
+        `);
+
+      await transaction.commit();
+
+      // Emit real-time deletion
+      const io = req.app.get('io');
+      if (io) {
+        io.to(`conversation_${conversationId}`).emit('message_deleted', {
+          conversation_id: conversationId,
+          message_id: messageId
+        });
+      }
+
+      return res.status(204).end();
+    } catch (err) {
+      await transaction.rollback();
+      throw err;
+    }
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * DELETE /api/conversations/:conversationId
+ * Delete an entire conversation for its participants
+ */
+router.delete('/:conversationId', authMiddleware, async (req, res, next) => {
+  try {
+    const { conversationId } = req.params;
+    const pool = await getPool();
+
+    // Verify user is participant in this conversation
+    const participantCheck = await pool.request()
+      .input('conversationId', conversationId)
+      .input('userId', req.user.id)
+      .query(`
+        SELECT COUNT(1) as count
+        FROM conversation_participants
+        WHERE conversation_id = @conversationId AND user_id = @userId
+      `);
+
+    if (participantCheck.recordset[0].count === 0) {
+      return res.status(403).json({ error: 'No tienes acceso a esta conversación' });
+    }
+
+    const transaction = pool.transaction();
+    await transaction.begin();
+    try {
+      // Delete attachments referencing messages in this conversation
+      await transaction.request()
+        .input('conversationId', conversationId)
+        .query(`
+          DELETE ma
+          FROM message_attachments ma
+          INNER JOIN messages m ON ma.message_id = m.id
+          WHERE m.conversation_id = @conversationId
+        `);
+
+      // Delete messages
+      await transaction.request()
+        .input('conversationId', conversationId)
+        .query(`DELETE FROM messages WHERE conversation_id = @conversationId`);
+
+      // Delete participants
+      await transaction.request()
+        .input('conversationId', conversationId)
+        .query(`DELETE FROM conversation_participants WHERE conversation_id = @conversationId`);
+
+      // Delete conversation
+      const delConv = await transaction.request()
+        .input('conversationId', conversationId)
+        .query(`DELETE FROM conversations WHERE id = @conversationId`);
+
+      if (delConv.rowsAffected[0] === 0) {
+        throw new Error('Conversación no encontrada');
+      }
+
+      await transaction.commit();
+
+      const io = req.app.get('io');
+      if (io) {
+        io.to(`conversation_${conversationId}`).emit('conversation_deleted', {
+          conversation_id: conversationId
+        });
+      }
+
+      return res.status(204).end();
+    } catch (err) {
+      await transaction.rollback();
+      throw err;
+    }
   } catch (err) {
     next(err);
   }
